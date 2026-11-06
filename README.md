@@ -4,10 +4,13 @@ English-only luxury dark interface for LOCAL MARS, using the existing Marslocal 
 
 ## Connected modules
 - Mission Overview dashboard
-- Land Explorer backed by `public.world_parcels`
-- MLC Marketplace display backed by `public.mars_mlc_parcel_market`
+- Land Explorer backed by `public.world_parcels` (19 registered parcels)
+- M-019 Central City with three districts and seven database-backed sites
+- Owner-gated virtual business registration backed by `public.mars_m019_businesses`
+- MLC Marketplace with 15-minute reservations and a secure simulated purchase RPC
 - Authenticated member chat backed by `public.mars_chat_messages` (subject to Realtime publication)
-- Authenticated, read-only MLC ledger query scoped to the signed-in user
+- Authenticated MLC wallet view; optional starter allocation is demo-only
+- MLC parcel purchases and balances are simulated credits with no cash value or real-world property rights
 - Satellite tracking remains clearly labelled simulation
 
 ## Vercel environment variables
@@ -27,4 +30,4 @@ A blank template is provided in `.env.example`. Never place a service-role key o
 Output directory: `dist`.
 
 ## Security and scope
-Public read access is used only for the parcel registry and public marketplace listings, under their existing SELECT-only RLS policies. Chat requires Supabase Auth and authenticated row-level security. Wallet reads are scoped to the authenticated user's ledger rows. The UI does not enable purchases, transfers, balance mutation, or public writes. Live spacecraft telemetry and a guaranteed 24/7 server process are not claimed.
+Public read access is used only for the parcel registry and public marketplace listings, under their existing SELECT-only RLS policies. Chat requires Supabase Auth and authenticated row-level security. Wallet reads are scoped to the authenticated user's ledger rows. All parcel purchase flows use database RPCs with server-side balance and reservation checks. Virtual business creation requires an authenticated account that owns M-019; public visitors can only inspect public business records. MLC is simulation-only and cannot be redeemed for cash. Live spacecraft telemetry and a guaranteed 24/7 server process are not claimed.
