@@ -1,24 +1,30 @@
-# LOCAL MARS — Mission Control 2.0
+# LOCAL MARS — Mission Control 2.1
 
-Browser-first English-only prototype inspired by the existing LOCAL MARS project.
+English-only luxury dark interface for LOCAL MARS, using the existing Marslocal Supabase project.
 
-## Modules
+## Connected modules
 - Mission Overview dashboard
-- Interactive Mars parcel explorer: M-003, M-019, M-007, M-012, M-021
-- Land marketplace with search
-- MLC demo wallet
-- Satellite and orbital simulation
-- Communications chat prototype
-- Responsive luxury dark interface
+- Land Explorer backed by `public.world_parcels`
+- MLC Marketplace display backed by `public.mars_mlc_parcel_market`
+- Authenticated member chat backed by `public.mars_chat_messages` (subject to Realtime publication)
+- Authenticated, read-only MLC ledger query scoped to the signed-in user
+- Satellite tracking remains clearly labelled simulation
 
-## Run
-`npm install` then `npm run dev`.
+## Vercel environment variables
+Set these for Production, Preview, and Development in Vercel Project Settings → Environment Variables:
 
-## Build
-`npm run build`.
+- `VITE_SUPABASE_URL` = Supabase project URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` = Supabase publishable key
 
-## Deploy
-Import this repository into Vercel. Build command: `npm run build`; output directory: `dist`.
+A blank template is provided in `.env.example`. Never place a service-role key or other secret in browser code or any variable prefixed with `VITE_`. Redeploy after setting the variables.
 
-## Prototype boundaries
-This version uses mock data. It does not connect to real satellite hardware, live Mars telemetry, real-time multiplayer chat, real payments, blockchain, or a production land registry. MLC is demo-only. M-003 access control is illustrative. Connect a backend such as Supabase and implement server-side authorization and ledger logic before production use.
+## Run locally
+`npm install`
+`npm run dev`
+
+## Production build
+`npm run build`
+Output directory: `dist`.
+
+## Security and scope
+Public read access is used only for the parcel registry and public marketplace listings, under their existing SELECT-only RLS policies. Chat requires Supabase Auth and authenticated row-level security. Wallet reads are scoped to the authenticated user's ledger rows. The UI does not enable purchases, transfers, balance mutation, or public writes. Live spacecraft telemetry and a guaranteed 24/7 server process are not claimed.
