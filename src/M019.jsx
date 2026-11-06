@@ -213,7 +213,7 @@ export default function M019City({ supabase, session, walletBalance, setWalletBa
                 {zoneSites.map((site) => {
                   const business = businessBySite.get(site.id);
                   return (
-                    <article className="m019-site" key={site.id}>
+                    <article className="m019-site" id={"site-" + site.id} key={site.id}>
                       <div className="m019-site-top"><span>{site.id}</span><span className={business ? 'occupied' : site.is_open ? 'available' : 'closed'}>{business ? 'OPERATING' : site.is_open ? 'AVAILABLE' : 'CLOSED'}</span></div>
                       <h3>{site.name}</h3>
                       <p>{site.purpose}</p>
