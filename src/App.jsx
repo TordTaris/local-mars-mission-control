@@ -1,25 +1,92 @@
-import React, { useState } from 'react';
-import { Activity, Bell, Compass, LayoutDashboard, MapPin, Menu, MessageCircle, Orbit, RadioTower, Satellite, ShoppingBag, Wallet, Search, Send, X, ShieldCheck, ArrowUpRight } from 'lucide-react';
-const parcels = [
- {id:'M-003',name:'Aurelia Research Zone',kind:'Restricted Facility',status:'Reserved',size:'0.35 km²',price:'—',x:56,y:39},
- {id:'M-019',name:'Elysium Trade District',kind:'Commercial Zone',status:'Available',size:'0.80 km²',price:'1,250 MLC',x:73,y:62},
- {id:'M-007',name:'Olympus Frontier',kind:'Development Zone',status:'Available',size:'1.20 km²',price:'980 MLC',x:30,y:58},
- {id:'M-012',name:'Valles Residential',kind:'Residential Zone',status:'Available',size:'0.65 km²',price:'760 MLC',x:42,y:77},
- {id:'M-021',name:'Tharsis Logistics',kind:'Industrial Zone',status:'Under Review',size:'1.50 km²',price:'1,600 MLC',x:82,y:28}
-];
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Bell, Compass, LayoutDashboard, MapPin, Menu, MessageCircle, Orbit, RadioTower, Satellite, ShoppingBag, Wallet, Search, Send, X, ShieldCheck, ArrowUpRight, RefreshCw, LogIn, LogOut } from 'lucide-react';
+import { supabase, supabaseConfigured } from './lib/supabase';
+
 const nav=[['Overview',LayoutDashboard],['Land Explorer',Compass],['Marketplace',ShoppingBag],['MLC Wallet',Wallet],['Satellite Tracking',Satellite],['Communications',MessageCircle]];
+const number=(v)=>new Intl.NumberFormat('en-US').format(Number(v)||0);
+const mapParcel=(row,listing)=>({
+ id:row.id, name:row.id, kind:row.terrain||'Unclassified terrain', resource:row.resource||'Not surveyed',
+ status:listing?.is_listed?'Listed':row.is_for_sale?'Available':'Not listed',
+ listed:Boolean(listing?.is_listed), price:listing?.price_mlc??null, size:Number(row.area_sqm)||0,
+ latitude:Number(row.latitude),longitude:Number(row.longitude),
+ x:Math.max(2,Math.min(98,(Number(row.longitude)+180)/360*100)),
+ y:Math.max(2,Math.min(98,(90-Number(row.latitude))/180*100))
+});
 export default function App(){
- const [page,setPage]=useState('Overview'),[picked,setPicked]=useState(null),[query,setQuery]=useState(''),[mobile,setMobile]=useState(false),[draft,setDraft]=useState(''),[messages,setMessages]=useState([{from:'SYSTEM',text:'Welcome to LOCAL MARS Communications. This is a prototype channel.'}]),[notice,setNotice]=useState('');
- const flash=t=>{setNotice(t);setTimeout(()=>setNotice(''),2500)};
- const send=()=>{if(draft.trim()){setMessages([...messages,{from:'OPERATOR',text:draft.trim()}]);setDraft('')}};
- const available=parcels.filter(p=>p.status==='Available'&&(p.name+p.id+p.kind).toLowerCase().includes(query.toLowerCase()));
- return <div className="app"><aside className={mobile?'sidebar open':'sidebar'}><div className="brand"><Orbit/><div><b>LOCAL MARS</b><small>MISSION CONTROL <i>2.0</i></small></div><button className="close" onClick={()=>setMobile(false)}><X/></button></div><label>WORKSPACE</label>{nav.map(([name,Icon])=><button className={'nav '+(page===name?'active':'')} key={name} onClick={()=>{setPage(name);setMobile(false)}}><Icon size={17}/>{name}</button>)}<div className="sidebottom"><span className="pulse"/> SYSTEMS OPERATIONAL <small>Prototype environment</small></div></aside>{mobile&&<div className="scrim" onClick={()=>setMobile(false)}/>}<main><header><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><span>LOCAL MARS / <b>{page.toUpperCase()}</b></span><div className="online"><i/> ONLINE DEMO <button onClick={()=>flash('No new notifications.') }><Bell size={17}/></button></div></header><div className="content"><div className="heading"><div><small>PLANETARY OPERATIONS · SOL 184</small><h1>{page==='Overview'?'Mission Overview':page}</h1><p>Explore, manage, and monitor your Mars territory.</p></div><span className="tag">MARS LOCAL TIME · 14:32</span></div>
- {page==='Overview'&&<><div className="stats">{[['Registered Land Parcels','05','Across 4 zones',MapPin],['Marketplace Listings','03','Available for acquisition',ShoppingBag],['MLC Treasury','2,450 MLC','Demo balance only',Wallet],['Orbital Assets','01','Simulated telemetry',Satellite]].map(([t,v,s,I])=><section className="stat" key={t}><small>{t}</small><I/><strong>{v}</strong><span>{s}</span></section>)}</div><div className="columns"><section className="panel"><div className="panelhead"><div><small>PLANETARY SURFACE</small><h2>Mars Land Explorer</h2></div><button onClick={()=>setPage('Land Explorer')}>Open explorer ↗</button></div><Map parcels={parcels} picked={picked} setPicked={setPicked}/><p className="legend">● Available　 <span>● Reserved</span>　 ● Under review</p></section><section className="panel"><small>MISSION FEED</small><h2>System Activity</h2>{[[ShieldCheck,'Access control active','M-003 restricted facility'],[Satellite,'Orbital simulation running','Low Mars orbit · Demo telemetry'],[ShoppingBag,'Marketplace synchronized','3 active listings'],[RadioTower,'Communication relay online','Local prototype network']].map(([I,a,b])=><div className="feed" key={a}><I/><div><b>{a}</b><small>{b}</small></div></div>)}</section></div></>}
- {page==='Land Explorer'&&<section className="panel"><small>INTERACTIVE TERRITORY MAP</small><h2>Explore Mars Surface</h2><p>Select a marker to inspect parcel details.</p><Map parcels={parcels} picked={picked} setPicked={setPicked} large/>{picked&&<div className="detail"><button className="closeDetail" onClick={()=>setPicked(null)}>×</button><small>SELECTED PARCEL</small><h3>{picked.id} — {picked.name}</h3><p>{picked.kind} · {picked.size} · {picked.status}</p><b>{picked.price}</b><button className="goldbtn" onClick={()=>flash('Parcel inspection is a demo action.')}>Inspect parcel <ArrowUpRight size={14}/></button></div>}{parcels.map(p=><button className="parcelrow" key={p.id} onClick={()=>setPicked(p)}><b>{p.id}</b><span>{p.name}<small>{p.kind}</small></span><em>{p.status}</em><small>{p.size}</small></button>)}</section>}
- {page==='Marketplace'&&<section className="panel"><small>LAND ACQUISITION</small><h2>Marketplace</h2><p>Browse available parcels. Transactions are demo-only.</p><div className="search"><Search size={16}/><input placeholder="Search parcel or zone..." value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="market">{available.map(p=><article key={p.id}><div className="landart">{p.id}<MapPin/></div><h3>{p.name}</h3><small>{p.kind} · {p.size}</small><div className="marketfoot"><b>{p.price}</b><button onClick={()=>flash('Demo request recorded. No funds transferred.')}>View details ↗</button></div></article>)}</div></section>}
- {page==='MLC Wallet'&&<div className="columns"><section className="wallet"><small>MARS LOCAL CURRENCY</small><h2>MLC Wallet</h2><p>Available demo balance</p><strong>2,450 <i>MLC</i></strong><p className="warning">Demo credits only. No real money or payment processing.</p><button className="goldbtn" onClick={()=>flash('Payment gateway is not connected.')}>Add demo credits</button></section><section className="panel"><small>LEDGER</small><h2>Recent Transactions</h2><div className="feed"><Wallet/><div><b>Prototype welcome allocation</b><small>System credit · Demo</small></div><strong>+2,450 MLC</strong></div></section></div>}
- {page==='Satellite Tracking'&&<div className="columns"><section className="panel"><small>ORBITAL ASSET · SIMULATED</small><h2>Survey Satellite — LM-01</h2><div className="orbit"><div className="ring"/><div className="marsball"/><Satellite/></div><p>Orbit altitude <b>400 km</b>　 Orbital period <b>121 min</b></p></section><section className="panel"><small>TELEMETRY STREAM</small><h2>Orbital Data</h2>{[['Latitude','18.42° N'],['Longitude','226.31° E'],['Signal strength','98.4%'],['Last packet','14:31:52']].map(([a,b])=><div className="data" key={a}>{a}<b>{b}</b></div>)}<p className="warning">Illustrative values, not live spacecraft telemetry.</p></section></div>}
- {page==='Communications'&&<section className="panel chat"><small>MISSION NETWORK · LOCAL DEMO</small><h2>Communications Center</h2><div className="messages">{messages.map((m,i)=><div className="message" key={i}><small>{m.from}</small><p>{m.text}</p></div>)}</div><div className="compose"><input value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Write a message..."/><button onClick={send}><Send size={16}/></button></div><p className="warning">Session-only chat. Persistent realtime messaging needs a backend.</p></section>}
- </div><footer>© 2026 LOCAL MARS MISSION CONTROL <span>PROTOTYPE ENVIRONMENT</span></footer></main>{notice&&<div className="toast">{notice}</div>}</div>
+ const [page,setPage]=useState('Overview'),[parcels,setParcels]=useState([]),[picked,setPicked]=useState(null),[query,setQuery]=useState(''),[mobile,setMobile]=useState(false),[notice,setNotice]=useState(''),[dbState,setDbState]=useState('connecting'),[dbError,setDbError]=useState(''),[loading,setLoading]=useState(false),[session,setSession]=useState(null),[email,setEmail]=useState(''),[authBusy,setAuthBusy]=useState(false),[messages,setMessages]=useState([]),[draft,setDraft]=useState(''),[walletBalance,setWalletBalance]=useState(null);
+ const flash=useCallback(message=>setNotice(message),[]);
+ useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(t)},[notice]);
+ useEffect(()=>{
+  if(!supabaseConfigured){setDbState('setup');return}
+  let mounted=true;
+  supabase.auth.getSession().then(({data})=>{if(mounted)setSession(data.session)});
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));
+  return()=>{mounted=false;subscription.unsubscribe()};
+ },[]);
+ const loadRegistry=useCallback(async()=>{
+  if(!supabaseConfigured)return;
+  setLoading(true);setDbError('');
+  const [land,market]=await Promise.all([
+   supabase.from('world_parcels').select('id,latitude,longitude,area_sqm,terrain,resource,base_price,is_for_sale').order('id'),
+   supabase.from('mars_mlc_parcel_market').select('parcel_id,price_mlc,is_listed').order('parcel_id')
+  ]);
+  if(land.error){setDbState('error');setDbError(land.error.message);setLoading(false);return}
+  if(market.error){setDbState('partial');setDbError('Land registry loaded; marketplace data is not available under current access rules.')}
+  else setDbState('connected');
+  const listings=new Map((market.data||[]).map(item=>[item.parcel_id,item]));
+  setParcels((land.data||[]).map(row=>mapParcel(row,listings.get(row.id))));
+  setLoading(false);
+ },[]);
+ useEffect(()=>{loadRegistry()},[loadRegistry]);
+ useEffect(()=>{
+  if(!supabaseConfigured||!session){setMessages([]);setWalletBalance(null);return}
+  let active=true;
+  const loadMemberData=async()=>{
+   const {data:chat,error:chatError}=await supabase.from('mars_chat_messages').select('id,user_id,display_name,body,created_at').order('created_at',{ascending:true}).limit(80);
+   if(active&&!chatError)setMessages(chat||[]);
+   if(active&&chatError)flash('Chat access is currently unavailable.');
+   const {data:ledger,error:ledgerError}=await supabase.from('mars_wallet_ledger').select('amount').eq('resource','mlc').eq('user_id',session.user.id);
+   if(active&&!ledgerError)setWalletBalance((ledger||[]).reduce((total,row)=>total+Number(row.amount||0),0));
+   if(active&&ledgerError)setWalletBalance(null);
+  };
+  loadMemberData();
+  const channel=supabase.channel('localmars-chat-feed').on('postgres_changes',{event:'INSERT',schema:'public',table:'mars_chat_messages'},payload=>{
+   if(active)setMessages(current=>current.some(item=>item.id===payload.new.id)?current:[...current,payload.new].slice(-80));
+  }).subscribe();
+  return()=>{active=false;supabase.removeChannel(channel)};
+ },[session,flash]);
+ const sendMessage=async()=>{
+  const body=draft.trim();if(!body||!session)return;
+  const {error}=await supabase.from('mars_chat_messages').insert({user_id:session.user.id,display_name:session.user.email?.split('@')[0]||'Explorer',body});
+  if(error){flash('Message not sent. Check member access.');return}
+  setDraft('');
+ };
+ const signIn=async event=>{
+  event.preventDefault();if(!email.trim()||!supabaseConfigured)return;
+  setAuthBusy(true);
+  const {error}=await supabase.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:window.location.origin}});
+  setAuthBusy(false);flash(error?error.message:'Sign-in link sent. Check your email inbox.');
+ };
+ const signOut=async()=>{await supabase.auth.signOut();flash('Signed out.')};
+ const listed=useMemo(()=>parcels.filter(p=>p.listed&&(p.id+' '+p.kind+' '+p.resource).toLowerCase().includes(query.toLowerCase())),[parcels,query]);
+ const selected=picked?parcels.find(p=>p.id===picked.id)||picked:null;
+ const countListed=parcels.filter(p=>p.listed).length;
+ return <div className="app">
+  <aside className={mobile?'sidebar open':'sidebar'}><div className="brand"><Orbit/><div><b>LOCAL MARS</b><small>MISSION CONTROL <i>2.1</i></small></div><button className="close" onClick={()=>setMobile(false)}><X/></button></div><label>WORKSPACE</label>{nav.map(([name,Icon])=><button className={'nav '+(page===name?'active':'')} key={name} onClick={()=>{setPage(name);setMobile(false)}}><Icon size={17}/>{name}</button>)}<div className="sidebottom"><span className="pulse"/>{dbState==='connected'?'DATABASE CONNECTED':dbState==='partial'?'PARTIAL CONNECTION':dbState==='error'?'CONNECTION ERROR':dbState==='setup'?'SETUP REQUIRED':'CONNECTING'}<small>{session?'Authenticated explorer':'Marslocal · Supabase'}</small></div></aside>
+  {mobile&&<div className="scrim" onClick={()=>setMobile(false)}/>}
+  <main><header><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><span>LOCAL MARS / <b>{page.toUpperCase()}</b></span><div className="online"><i/>{dbState==='connected'?'LIVE DATABASE':dbState==='setup'?'SETUP REQUIRED':dbState==='error'?'OFFLINE':'CONNECTING'}<button onClick={loadRegistry} title="Refresh registry"><RefreshCw size={15}/></button>{session&&<button onClick={signOut} title="Sign out"><LogOut size={16}/></button>}<button onClick={()=>flash('No new notifications.')}><Bell size={17}/></button></div></header>
+  <div className="content"><div className="heading"><div><small>PLANETARY OPERATIONS · MARS REGISTRY</small><h1>{page==='Overview'?'Mission Overview':page}</h1><p>Explore, manage, and monitor your Mars territory.</p></div><span className="tag">REGISTRY · {parcels.length} PARCELS</span></div>
+  {dbState==='setup'&&<div className="detail"><b>Backend setup required</b><p>Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel Project Settings → Environment Variables, then redeploy.</p></div>}
+  {dbState==='error'&&<div className="detail"><b>Database connection error</b><p>{dbError}</p><button className="goldbtn" onClick={loadRegistry}>Retry <RefreshCw size={14}/></button></div>}
+  {dbState==='partial'&&<div className="detail"><b>Partial connection</b><p>{dbError}</p></div>}
+  {page==='Overview'&&<><div className="stats">{[['Registered Land Parcels',number(parcels.length),'Live world_parcels registry',MapPin],['Marketplace Listings',number(countListed),'Active listing flags in MLC market',ShoppingBag],['MLC Wallet',walletBalance===null?'SIGN IN':number(walletBalance)+' MLC',session?'Private ledger total':'Member authentication required',Wallet],['Orbital Assets','01','Simulated telemetry only',Satellite]].map(([title,value,sub,Icon])=><section className="stat" key={title}><small>{title}</small><Icon/><strong>{value}</strong><span>{sub}</span></section>)}</div><div className="columns"><section className="panel"><div className="panelhead"><div><small>PLANETARY SURFACE</small><h2>Mars Land Explorer</h2></div><button onClick={()=>setPage('Land Explorer')}>Open explorer ↗</button></div><Map parcels={parcels} picked={selected} setPicked={setPicked}/><p className="legend">● Listed　 <span>● Not listed</span>　 Select a marker for details</p>{selected&&<ParcelDetail parcel={selected}/>}</section><section className="panel"><small>MISSION FEED</small><h2>System Activity</h2>{[[ShieldCheck,'Land registry connected',parcels.length+' database records'],[ShoppingBag,'MLC marketplace',countListed+' listing flags active'],[Satellite,'Orbital simulation','Not live spacecraft telemetry'],[RadioTower,'Communications',session?'Authenticated member':'Sign-in required']].map(([Icon,title,sub])=><div className="feed" key={title}><Icon/><div><b>{title}</b><small>{sub}</small></div></div>)}</section></div></>}
+  {page==='Land Explorer'&&<section className="panel"><small>INTERACTIVE TERRITORY MAP</small><h2>Explore Mars Surface</h2><p>Parcel positions use latitude and longitude stored in the Marslocal registry.</p><Map parcels={parcels} picked={selected} setPicked={setPicked} large/>{selected&&<ParcelDetail parcel={selected}/ >}{parcels.map(p=><button className="parcelrow" key={p.id} onClick={()=>setPicked(p)}><b>{p.id}</b><span>{p.kind}<small>Resource: {p.resource}</small></span><em>{p.status}</em><small>{number(p.size)} m²</small></button>)}</section>}
+  {page==='Marketplace'&&<section className="panel"><small>LAND LISTINGS · MLC</small><h2>Marketplace</h2><p>Listings reflect the live MLC market table. Inspection only; secure purchase flow is not enabled.</p><div className="search"><Search size={16}/><input placeholder="Search parcel, terrain or resource..." value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="market">{listed.map(p=><article key={p.id}><div className="landart">{p.id}<MapPin/></div><h3>{p.kind}</h3><small>{p.resource} · {number(p.size)} m²</small><div className="marketfoot"><b>{number(p.price)} MLC</b><button onClick={()=>{setPicked(p);setPage('Land Explorer')}}>Inspect ↗</button></div></article>)}</div>{!listed.length&&<p className="warning">{loading?'Loading market records…':'No active listings match this search.'}</p>}</section>}
+  {page==='MLC Wallet'&&<div className="columns"><section className="wallet"><small>MARS LOCAL CURRENCY</small><h2>MLC Wallet</h2><p>{session?'Authenticated private ledger':'Sign in to view your balance'}</p><strong>{walletBalance===null?'—':number(walletBalance)} <i>MLC</i></strong><p className="warning">Read-only ledger view. Transfers and balance changes require secure server-side authorization.</p>{!session&&<button className="goldbtn" onClick={()=>setPage('Communications')}>Sign in to account</button>}</section><section className="panel"><small>LEDGER SECURITY</small><h2>Protected Transactions</h2><div className="feed"><ShieldCheck/><div><b>Row-level security enabled</b><small>Ledger query scoped to your account</small></div></div><div className="feed"><Wallet/><div><b>Read-only interface</b><small>No client-side minting or transfers</small></div></div></section></div>}
+  {page==='Satellite Tracking'&&<div className="columns"><section className="panel"><small>ORBITAL ASSET · SIMULATED</small><h2>Survey Satellite — LM-01</h2><div className="orbit"><div className="ring"/><div className="marsball"/><Satellite/></div><p>Illustrative orbit altitude <b>400 km</b>　 Period <b>121 min</b></p></section><section className="panel"><small>TELEMETRY STREAM</small><h2>Orbital Data</h2>{[['Latitude','18.42° N'],['Longitude','226.31° E'],['Signal strength','98.4%'],['Last packet','SIMULATED']].map(([a,b])=><div className="data" key={a}>{a}<b>{b}</b></div>)}<p className="warning">Illustrative values, not live spacecraft telemetry.</p></section></div>}
+  {page==='Communications'&&<section className="panel chat"><small>MISSION NETWORK · MEMBER CHAT</small><h2>Communications Center</h2>{!session?<form className="signin" onSubmit={signIn}><p>Sign in with your email to access member communications.</p><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Explorer email address"/><button className="goldbtn" disabled={authBusy}><LogIn size={14}/>{authBusy?'Sending…':'Send sign-in link'}</button></form>:<><div className="messages">{messages.map((m,i)=><div className="message" key={m.id||i}><small>{m.display_name||'EXPLORER'} · {new Date(m.created_at).toLocaleString()}</small><p>{m.body}</p></div>)}</div><div className="compose"><input value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendMessage()} placeholder="Write a message..."/><button onClick={sendMessage}><Send size={16}/></button></div></>}<p className="warning">Member chat requires authentication and the database realtime publication.</p></section>}
+  </div><footer>© 2026 LOCAL MARS MISSION CONTROL <span>{dbState==='connected'?'SUPABASE CONNECTED':'BACKEND STATUS · '+dbState.toUpperCase()}</span></footer></main>{notice&&<div className="toast">{notice}</div>}
+ </div>
 }
-function Map({parcels,picked,setPicked,large=false}){return <div className={'map '+(large?'large':'')}><div className="planet">{parcels.map(p=><button key={p.id} title={p.id} className={'pin '+(p.status==='Reserved'?'reserved':p.status==='Under Review'?'review':'')} style={{left:p.x+'%',top:p.y+'%'}} onClick={()=>setPicked(p)}><i/>{p.id}</button>)}</div><div className="maplabel">MARS / SURFACE GRID <span>SIMULATED CARTOGRAPHY</span></div></div>}
+function ParcelDetail({parcel:p}){return <div className="detail"><small>SELECTED REGISTRY PARCEL</small><h3>{p.id}</h3><p>{p.kind} · {number(p.size)} m² · {p.status}</p><p>Resource: {p.resource}</p><p>Coordinates: {p.latitude.toFixed(2)}°, {p.longitude.toFixed(2)}°</p>{p.price!==null?<b>{number(p.price)} MLC · Listing price</b>:<b>No active MLC listing</b>}</div>}
+function Map({parcels,picked,setPicked,large=false}){return <div className={'map '+(large?'large':'')}><div className="planet">{parcels.map(p=><button key={p.id} title={p.id} className={'pin '+(p.listed?'':'review')+(picked?.id===p.id?' selected':'')} style={{left:p.x+'%',top:p.y+'%'}} onClick={()=>setPicked(p)}><i/>{p.id}</button>)}</div><div className="maplabel">MARS / LIVE PARCEL REGISTRY <span>STORED COORDINATES</span></div></div>}
